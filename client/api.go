@@ -112,13 +112,20 @@ func (client *HerokuClient) RemoveCollaborator(app *types.Application, collabora
 
 /* Config */
 
-func (client *HerokuClient) ListConfig(app *types.Application) (configs *[]types.Config, err error) {
-	err = client.Do(api.ListConfig(app), &configs)
+func (client *HerokuClient) ListConfig(app *types.Application) (*[]types.Config, error) {
+	configMap := make(map[string]interface{})
+
+	err := client.Do(api.ListConfig(app), &configMap)
 	if err != nil {
 		return nil, err
 	}
 
-	return configs, nil
+	configs := make([]types.Config, len(configMap))
+	for k, v := range configMap {
+		configs = append(configs, types.Config{k, fmt.Sprint(v)})
+	}
+
+	return &configs, nil
 }
 
 func (client *HerokuClient) AddConfig(app *types.Application, configVars *[]types.Config) (configs *[]types.Config, err error) {
