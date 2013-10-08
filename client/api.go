@@ -3,6 +3,8 @@ package client
 import "encoding/json"
 import "fmt"
 import "net/http"
+import "io"
+import "os"
 import "io/ioutil"
 import "go-heroku/api"
 import "go-heroku/types"
@@ -41,10 +43,23 @@ func NewApiError(res *http.Response) error {
 }
 
 func decodeApiResponse(res *http.Response, data interface{}) error {
-	err := json.NewDecoder(res.Body).Decode(data)
+	fmt.Println(res.Header)
+	reader := io.TeeReader(res.Body, os.Stdout)
+	fmt.Println(res.Body)
+	err := json.NewDecoder(reader).Decode(data)
 	if err != nil {
 		fmt.Println("JsonDecoderError:", err)
 		return NewApiError(res)
+	}
+
+	return nil
+}
+
+func decodeApiReader(reader io.Reader, data interface{}) error {
+	err := json.NewDecoder(reader).Decode(data)
+	if err != nil {
+		fmt.Println("JsonDecoderError:", err)
+		return err
 	}
 
 	return nil
@@ -121,8 +136,10 @@ func (client *HerokuClient) ListConfig(app *types.Application) (*[]types.Config,
 	}
 
 	configs := make([]types.Config, len(configMap))
+	index := 0
 	for k, v := range configMap {
-		configs = append(configs, types.Config{k, fmt.Sprint(v)})
+		configs[index] = types.Config{k, fmt.Sprint(v)}
+		index++
 	}
 
 	return &configs, nil
