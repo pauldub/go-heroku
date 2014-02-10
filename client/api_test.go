@@ -46,3 +46,62 @@ func TestListConfig(t *testing.T) {
 		t.Fatalf("expected config to have 15 items was %d", len(*config))
 	}
 }
+
+const JSONAuthError = `{
+  "id":"unauthorized",
+  "error":"Invalid credentials provided."
+}`
+
+func TestErrorApiError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		header := w.Header()
+		header.Add("Content-Type", "application/json")
+		w.WriteHeader(401)
+		w.Write([]byte(JSONAuthError))
+	}))
+	defer server.Close()
+
+	client := NewHerokuClient("foobar")
+	client.ApiEndpoint = server.URL
+
+	_, err := client.ListApplications()
+
+	switch err.(type) {
+	case ApiError:
+	case nil:
+		t.Fatalf("expected an error")
+	default:
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if err.Error() != "ApiError(unauthorized): Invalid credentials provided." {
+		t.Errorf("unexpected message %s", err.Error())
+	}
+}
+
+func TestErrorUnknownError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		header := w.Header()
+		header.Add("Content-Type", "application/json")
+		w.WriteHeader(402)
+		w.Write([]byte("Payment required to continue."))
+	}))
+
+	client := NewHerokuClient("foobar")
+	client.ApiEndpoint = server.URL
+
+	_, err := client.ListApplications()
+
+	switch err.(type) {
+	case UnknownError:
+	case nil:
+		t.Fatalf("expected an error")
+	default:
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if err.Error() != "UnknownError: Payment required to continue." {
+		t.Errorf("unexpected message %s", err.Error())
+	}
+
+}
