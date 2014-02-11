@@ -12,28 +12,29 @@ type ApiError struct {
 	Message string `json:"error"`
 }
 
-func (err *ApiError) Error() string {
-	return fmt.Sprintf("ApiError: %+v", err)
+func (err ApiError) Error() string {
+	return fmt.Sprintf("ApiError(%s): %s", err.Id, err.Message)
 }
 
 type UnknownError struct {
 	Message string
 }
 
-func (err *UnknownError) Error() string {
-	return fmt.Sprintf("UnknownError: %+v", err)
+func (err UnknownError) Error() string {
+	return fmt.Sprintf("UnknownError: %s", err.Message)
 }
 
 func NewApiError(res *http.Response) error {
+
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return err
 	}
 
-	apiError := &ApiError{}
-	err = json.Unmarshal(body, apiError)
+	apiError := ApiError{}
+	err = json.Unmarshal(body, &apiError)
 	if err != nil {
-		unknownError := &UnknownError{string(body)}
+		unknownError := UnknownError{string(body)}
 		return unknownError
 	}
 
@@ -41,6 +42,9 @@ func NewApiError(res *http.Response) error {
 }
 
 func decodeApiResponse(res *http.Response, data interface{}) error {
+	if k := res.StatusCode / 100; k == 4 || k == 5 {
+		return NewApiError(res)
+	}
 	err := json.NewDecoder(res.Body).Decode(data)
 	if err != nil {
 		fmt.Println("JsonDecoderError:", err)
